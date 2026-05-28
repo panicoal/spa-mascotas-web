@@ -21,30 +21,53 @@
         </div>
       </div>
     </nav>
+    <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <div class="bg-white rounded-2xl shadow-sm border p-8 mb-8">
+        <div class="text-left md:text-center max-w-2xl mx-auto">
+          <h2 class="text-3xl font-extrabold text-slate-900 mb-2">Panel del Personal del Spa</h2>
+          <p class="text-slate-600 mb-6 text-base">
+            Bienvenido al panel operativo. Aquí puedes coordinar la agenda, confirmar citas y registrar las fichas técnicas de grooming.
+          </p>
+        </div>
 
-    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-      <div class="px-4 py-6 sm:px-0">
-        <div class="border-4 border-dashed border-gray-200 rounded-lg p-8">
-          <div class="text-center">
-            <h2 class="text-2xl font-bold text-gray-900 mb-4">Panel de Personal</h2>
-            <p class="text-gray-600 mb-6">
-              Gestiona citas, servicios y atiende a los clientes.
-            </p>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-lg font-medium text-gray-900 mb-2">Citas del Día</h3>
-                <p class="text-gray-600">Revisa las citas programadas</p>
-              </div>
-              <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-lg font-medium text-gray-900 mb-2">Servicios</h3>
-                <p class="text-gray-600">Registra servicios realizados</p>
-              </div>
-              <div class="bg-white p-6 rounded-lg shadow">
-                <h3 class="text-lg font-medium text-gray-900 mb-2">Clientes</h3>
-                <p class="text-gray-600">Busca y administra clientes</p>
-              </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto mt-6">
+          
+          <!-- RECEPCION CARD -->
+          <div
+            v-if="roles.includes('RECEPCION') || roles.includes('ADMIN')"
+            @click="router.push('/reception/calendar')"
+            class="bg-gradient-to-tr from-indigo-50 to-teal-50 hover:shadow-xl hover:border-teal-400/50 transition cursor-pointer p-6 rounded-2xl border flex flex-col justify-between"
+          >
+            <div>
+              <span class="text-4xl block mb-4">📅</span>
+              <h3 class="text-xl font-bold text-slate-900 mb-2">Calendario de Recepción</h3>
+              <p class="text-slate-600 text-sm">
+                Controla la agenda en tiempo real, confirma solicitudes de clientes, reprograma citas y gestiona pagos de caja.
+              </p>
             </div>
+            <button class="mt-6 w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2.5 rounded-xl transition text-sm">
+              Abrir Recepción
+            </button>
           </div>
+
+          <!-- GROOMER CARD -->
+          <div
+            v-if="roles.includes('GROOMER') || roles.includes('ADMIN')"
+            @click="router.push('/groomer/workspace')"
+            class="bg-gradient-to-tr from-purple-50 to-indigo-50 hover:shadow-xl hover:border-indigo-400/50 transition cursor-pointer p-6 rounded-2xl border flex flex-col justify-between"
+          >
+            <div>
+              <span class="text-4xl block mb-4">✂️</span>
+              <h3 class="text-xl font-bold text-slate-900 mb-2">Estación de Grooming</h3>
+              <p class="text-slate-600 text-sm">
+                Visualiza tus servicios asignados hoy, abre la ficha técnica del animal, marca el checklist obligatorio y cierra atenciones.
+              </p>
+            </div>
+            <button class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl transition text-sm">
+              Ingresar a Mesa
+            </button>
+          </div>
+
         </div>
       </div>
     </main>

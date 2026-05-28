@@ -236,8 +236,8 @@ const handleLogin = async () => {
       return
     }
 
-    // Login exitoso
-    await authStore.login(form)
+    // Login exitoso - usar los datos de la respuesta directamente
+    await authStore.loginSuccess(response.data)
     redirectBasedOnRole()
 
   } catch (err) {
@@ -283,7 +283,7 @@ const generateQR = async () => {
     const response = await generate2FARequest()
     qrCode.value = response.data.qr_code
     secret.value = response.data.secret
-  } catch (error) {
+  } catch (err) {
     error.value = 'Error al generar QR'
   }
 }

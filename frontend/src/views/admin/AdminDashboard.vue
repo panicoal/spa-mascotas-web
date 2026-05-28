@@ -8,6 +8,12 @@
           </div>
           <div class="flex items-center space-x-4">
             <span class="text-sm text-gray-700">Bienvenido, {{ user?.nombre_completo }}</span>
+            <router-link
+              to="/admin/inventario"
+              class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-md text-sm font-medium"
+            >
+              📦 Inventario
+            </router-link>
             <button
               @click="handleLogout"
               class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium"
