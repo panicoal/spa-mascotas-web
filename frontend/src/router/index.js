@@ -11,6 +11,7 @@ import LoginView from '@/views/auth/LoginView.vue'
 import RegisterView from '@/views/auth/RegisterView.vue'
 import ChangePasswordView from '@/views/auth/ChangePasswordView.vue'
 import AdminDashboard from '@/views/admin/AdminDashboard.vue'
+import ReportesAdmin from '@/views/admin/ReportesAdmin.vue'
 import StaffDashboard from '@/views/staff/StaffDashboard.vue'
 import ClientDashboard from '@/views/client/ClientDashboard.vue'
 import VerifyEmailView from '@/views/auth/VerifyEmailView.vue'
@@ -23,6 +24,15 @@ const routes = [
         meta: {
             requiresAuth: true,
             roles: ['ADMIN', 'RECEPCION']
+        }
+    },
+    {
+        path: '/admin/reportes',
+        name: 'admin-reportes',
+        component: ReportesAdmin,
+        meta: {
+            requiresAuth: true,
+            role: 'ADMIN'
         }
     },
     {
@@ -120,6 +130,15 @@ const routes = [
         path: '/reception/calendar',
         name: 'reception-calendar',
         component: () => import('@/views/admin/ReceptionCalendarView.vue'),
+        meta: {
+            requiresAuth: true,
+            roles: ['RECEPCION', 'ADMIN']
+        }
+    },
+    {
+        path: '/reception/cierre-caja',
+        name: 'reception-cierre-caja',
+        component: () => import('@/views/admin/ReceptionCashCloseView.vue'),
         meta: {
             requiresAuth: true,
             roles: ['RECEPCION', 'ADMIN']

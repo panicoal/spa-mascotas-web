@@ -66,6 +66,22 @@ class Service extends Model
         return $this->attributes['activo'] ?? true;
     }
 
+    public function getAdjustedDurationForSize(string $size): int
+    {
+        $baseDuration = (int) ($this->duracion_base_minutos ?? 0);
+        $size = strtoupper(trim($size));
+
+        $adjustment = match ($size) {
+            'PEQUEÑO' => 1.0,
+            'MEDIANO' => 1.10,
+            'GRANDE' => 1.15,
+            'GIGANTE' => 1.30,
+            default => 1.0,
+        };
+
+        return (int) ceil($baseDuration * $adjustment);
+    }
+
     public function setIsActiveAttribute($value)
     {
         $this->attributes['activo'] = $value;

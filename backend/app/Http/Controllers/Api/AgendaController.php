@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class AgendaController extends Controller
 {
@@ -33,22 +34,14 @@ class AgendaController extends Controller
         $service = Service::findOrFail($request->servicio_id);
 
         // 1. Calculate adjusted duration based on pet size
-        $duracionBase = $service->duracion_base_minutos;
-        $tamanio = strtoupper($pet->tamanio ?? 'PEQUEÑO');
+        $duracionAjustada = $service->getAdjustedDurationForSize($pet->tamanio ?? 'PEQUEÑO');
 
-        $ajuste = 1.0;
-        if ($tamanio === 'MEDIANO') {
-            $ajuste = 1.10;
-        } elseif ($tamanio === 'GRANDE') {
-            $ajuste = 1.15;
-        } elseif ($tamanio === 'GIGANTE') {
-            $ajuste = 1.30;
-        }
-
-        $duracionAjustada = (int) ceil($duracionBase * $ajuste);
-
-        // 2. Fetch all active groomers
-        $groomers = User::role('GROOMER')->where('is_active', true)->get();
+        // 2. Fetch all active groomers (only those who exist in groomers table)
+        $groomers = User::role('GROOMER')
+            ->where('is_active', true)
+            ->join('groomers', 'usuarios.id', '=', 'groomers.groomer_id')
+            ->select('usuarios.*')
+            ->get();
 
         $disponibilidad = [];
 
@@ -166,8 +159,8 @@ class AgendaController extends Controller
                     ];
                 }
 
-                // Increment by 30 minutes for the next slot
-                $start->addMinutes(30);
+                // Increment by 15 minutes for the next slot to support exact service durations
+                $start->addMinutes(15);
             }
 
             if (!empty($slotsGroomer)) {

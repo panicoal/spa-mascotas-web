@@ -174,7 +174,7 @@ class GroomingController extends Controller
             ], 422);
         }
 
-        $request->validate([
+        $rules = [
             'estado_ingreso_nudos' => 'required|string|in:NO,MODERADO,SEVERO',
             'estado_ingreso_pulgas' => 'required|boolean',
             'estado_ingreso_heridas' => 'nullable|string',
@@ -184,9 +184,33 @@ class GroomingController extends Controller
             'tiempo_real_minutos' => 'required|integer|min:5|max:480',
             'checklist' => 'required|array|min:1', // Must complete at least 1 item
             'checklist.*' => 'string',
-            'fotos' => 'nullable|array', // Before/After photos URLs
-            'fotos.*' => 'string'
-        ]);
+            'fotos' => 'nullable|array'
+        ];
+
+        if ($request->hasFile('fotos')) {
+            $rules['fotos.*'] = 'file|image|mimes:jpeg,png,jpg,gif|max:5120';
+        } elseif ($request->has('fotos')) {
+            $rules['fotos.*'] = 'string';
+        }
+
+        $request->validate($rules);
+
+        $uploadedPhotoPaths = [];
+        if ($request->hasFile('fotos')) {
+            foreach ($request->file('fotos') as $photo) {
+                if ($photo->isValid()) {
+                    $storedPath = $photo->store('grooming_fotos', 'public');
+                    $uploadedPhotoPaths[] = Storage::disk('public')->url($storedPath);
+                }
+            }
+        }
+
+        $storedFotos = [];
+        if (is_array($request->input('fotos', []))) {
+            $storedFotos = $request->input('fotos', []);
+        }
+
+        $fotos = array_merge($storedFotos, $uploadedPhotoPaths);
 
         $ficha = FichaGrooming::where('cita_id', $cita->id)->firstOrFail();
         $fichaAntes = $ficha->toArray();
@@ -202,7 +226,7 @@ class GroomingController extends Controller
             'recomendaciones_tecnicas' => strip_tags($request->recomendaciones_tecnicas),
             'tiempo_real_minutos' => $request->tiempo_real_minutos,
             'checklist' => $request->checklist,
-            'fotos' => $request->fotos ?? [],
+            'fotos' => $fotos,
             'fecha_cierre' => Carbon::now()
         ]);
 

@@ -8,12 +8,77 @@ use App\Models\MovimientoInventario;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class InventarioController extends Controller
 {
     // ─────────────────────────────────────────────────────────────
     //  PRODUCTOS
     // ─────────────────────────────────────────────────────────────
+
+    /**
+     * Register a client WhatsApp order and decrement inventory stock for each ordered item.
+     */
+    public function registrarPedidoCliente(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'items' => 'required|array|min:1',
+            'items.*.producto_id' => 'required|uuid|exists:productos,id',
+            'items.*.cantidad' => 'required|integer|min:1',
+        ]);
+
+        $movimientos = [];
+
+        try {
+            DB::transaction(function () use ($data, &$movimientos) {
+                foreach ($data['items'] as $item) {
+                    $producto = Producto::lockForUpdate()->findOrFail($item['producto_id']);
+                    $cantidad = intval($item['cantidad']);
+
+                    if ($cantidad > $producto->stock_actual) {
+                        throw new \Exception("Stock insuficiente para {$producto->nombre}. Disponible: {$producto->stock_actual} {$producto->unidad_medida}.");
+                    }
+
+                    $stockAnterior = $producto->stock_actual;
+                    $stockNuevo = $stockAnterior - $cantidad;
+
+                    $producto->update(['stock_actual' => $stockNuevo]);
+
+                    $movimiento = MovimientoInventario::create([
+                        'producto_id'    => $producto->id,
+                        'usuario_id'     => auth()->id(),
+                        'tipo_movimiento'=> 'SALIDA',
+                        'motivo'         => 'Pedido por WhatsApp',
+                        'cantidad'       => $cantidad,
+                        'stock_anterior' => $stockAnterior,
+                        'stock_nuevo'    => $stockNuevo,
+                    ]);
+
+                    AuditService::log(
+                        auth()->id(),
+                        'PEDIDO_WHATSAPP',
+                        'movimientos_inventario',
+                        $movimiento->id,
+                        ['producto_id' => $producto->id, 'stock_anterior' => $stockAnterior],
+                        ['stock_nuevo' => $stockNuevo, 'cantidad' => $cantidad]
+                    );
+
+                    $movimientos[] = $movimiento;
+                }
+            });
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
+
+        return response()->json([
+            'message' => 'Pedido registrado y stock actualizado.',
+            'movimientos' => $movimientos,
+        ]);
+    }
 
     /**
      * List all products with low-stock alert flag
@@ -237,5 +302,55 @@ class InventarioController extends Controller
             'productos_alerta'      => $productosAlerta,
             'movimientos_recientes' => $movimientosRecientes,
         ]);
+    }
+
+    /**
+     * Generate inventory report as PDF
+     */
+    public function reporteInventarioPdf(Request $request): Response
+    {
+        try {
+            $incluirBajoStock = $request->boolean('bajo_stock_only', false);
+
+            if ($incluirBajoStock) {
+                $productos = Producto::whereRaw('stock_actual <= stock_minimo')
+                    ->orderBy('stock_actual')
+                    ->get();
+            } else {
+                $productos = Producto::orderBy('nombre')->get();
+            }
+
+            $totalProductos = $productos->count();
+            $totalValor = $productos->sum(function ($p) {
+                return $p->stock_actual * $p->precio_venta;
+            });
+            $bajoStockCount = $productos->where('stock_actual', '<=', function ($query) {
+                return $query->selectRaw('stock_minimo');
+            })->count();
+
+            $data = [
+                'titulo' => 'Reporte de Inventario',
+                'tipo' => $incluirBajoStock ? 'Productos en Alerta' : 'Inventario Completo',
+                'productos' => $productos,
+                'total_productos' => $totalProductos,
+                'total_valor' => $totalValor,
+                'bajo_stock_count' => $bajoStockCount,
+                'fecha_generacion' => Carbon::now()->format('d/m/Y H:i'),
+                'usuario' => Auth::user()->name,
+            ];
+
+            $pdf = Pdf::loadView('reportes.inventario', $data)
+                ->setOption('defaultFont', 'Arial')
+                ->setOption('dpi', 96)
+                ->setOption('enable_remote', true);
+
+            $nombreArchivo = $incluirBajoStock 
+                ? 'Reporte-Inventario-Alertas-' . Carbon::now()->format('Y-m-d') . '.pdf'
+                : 'Reporte-Inventario-' . Carbon::now()->format('Y-m-d') . '.pdf';
+
+            return $pdf->download($nombreArchivo);
+        } catch (\Throwable $e) {
+            return response('Error al generar el reporte de inventario: ' . $e->getMessage(), 500);
+        }
     }
 }

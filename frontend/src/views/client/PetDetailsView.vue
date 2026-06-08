@@ -114,7 +114,25 @@ const pet = computed(() => petStore.selectedPet)
 
 const formatDate = (d) => {
   if (!d) return '-'
-  return new Date(d + 'T00:00:00').toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' })
+  try {
+    let date
+    if (d.includes('T')) {
+      date = new Date(d)
+    } else if (d.length === 10) {
+      date = new Date(d + 'T00:00:00')
+    } else {
+      date = new Date(d)
+    }
+    
+    if (isNaN(date.getTime())) {
+      return '-'
+    }
+    
+    return date.toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' })
+  } catch (error) {
+    console.error('Error formatting date:', d, error)
+    return '-'
+  }
 }
 
 const especieIcon = (especie) => {

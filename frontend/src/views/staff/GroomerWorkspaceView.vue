@@ -310,29 +310,29 @@
                     ></textarea>
                   </div>
 
-                  <!-- SIMULATED PHOTOS UPLOAD -->
+                  <!-- PHOTO UPLOAD FOR TECHNICAL CLOSURE -->
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label class="block text-xs font-semibold text-slate-300 mb-1.5">Fotos de evidencia (Ingreso/Salida)</label>
-                      <button
-                        type="button"
-                        @click="addMockPhoto"
-                        class="w-full bg-slate-900 border border-slate-800 hover:border-orange-500/50 py-2.5 rounded-lg text-xs font-medium text-slate-300 flex items-center justify-center gap-1.5 transition"
-                      >
-                        📸 Cargar Foto Antes / Después
-                      </button>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        @change="onPhotoFilesChange"
+                        class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 text-xs focus:outline-none focus:border-orange-500 transition"
+                      />
                     </div>
                     <div class="flex items-center gap-2 overflow-x-auto">
                       <div
                         v-for="(photo, index) in form.fotos"
                         :key="index"
-                        class="h-10 w-10 border border-slate-800 rounded-lg bg-slate-950 flex items-center justify-center relative group"
+                        class="h-16 w-16 border border-slate-800 rounded-lg bg-slate-950 overflow-hidden relative group"
                       >
-                        <span class="text-lg">🖼️</span>
+                        <img :src="photo" alt="Foto evidencia" class="h-full w-full object-cover" />
                         <button
                           type="button"
                           @click="removePhoto(index)"
-                          class="absolute -top-1.5 -right-1.5 bg-red-600 text-white rounded-full h-4 w-4 text-[9px] flex items-center justify-center shadow"
+                          class="absolute -top-1.5 -right-1.5 bg-red-600 text-white rounded-full h-5 w-5 text-[10px] flex items-center justify-center shadow"
                         >✕</button>
                       </div>
                     </div>
@@ -423,6 +423,7 @@ const loadingSubmit = ref(false)
 
 const showNotificationModal = ref(false)
 const notificationPayload = ref(null)
+const photoFiles = ref([])
 
 const form = reactive({
   estado_ingreso_nudos: 'NO',
@@ -480,12 +481,25 @@ const selectAppointment = (cita) => {
   form.tiempo_real_minutos = cita.service?.duracion_base_minutos || 60
   form.checklist = []
   form.fotos = []
+  photoFiles.value = []
+}
+
+const onPhotoFilesChange = (event) => {
+  form.fotos.forEach((url) => {
+    if (url && url.startsWith('blob:')) {
+      URL.revokeObjectURL(url)
+    }
+  })
+
+  const files = Array.from(event.target.files || [])
+  photoFiles.value = files
+  form.fotos = files.map((file) => URL.createObjectURL(file))
 }
 
 const startService = async (citaId) => {
   loadingSubmit.value = true
   try {
-    const res = await iniciarFicha(citaId)
+    await iniciarFicha(citaId)
     await fetchAgenda()
     
     // Select the updated appointment
@@ -498,13 +512,13 @@ const startService = async (citaId) => {
   }
 }
 
-const addMockPhoto = () => {
-  const mockUrl = `/uploads/evidence_photo_${Date.now()}.jpg`
-  form.fotos.push(mockUrl)
-}
-
 const removePhoto = (index) => {
+  const removedUrl = form.fotos[index]
+  if (removedUrl && removedUrl.startsWith('blob:')) {
+    URL.revokeObjectURL(removedUrl)
+  }
   form.fotos.splice(index, 1)
+  photoFiles.value.splice(index, 1)
 }
 
 const submitTechnicalClosure = async () => {
@@ -512,17 +526,21 @@ const submitTechnicalClosure = async () => {
 
   loadingSubmit.value = true
   try {
-    const res = await cerrarFicha(activeAppointment.value.id, {
-      estado_ingreso_nudos: form.estado_ingreso_nudos,
-      estado_ingreso_pulgas: form.estado_ingreso_pulgas,
-      estado_ingreso_heridas: form.estado_ingreso_heridas,
-      temperamento: form.temperamento,
-      condicion_general: form.condicion_general,
-      recomendaciones_tecnicas: form.recomendaciones_tecnicas,
-      tiempo_real_minutos: form.tiempo_real_minutos,
-      checklist: form.checklist,
-      fotos: form.fotos
+    const payload = new FormData()
+    payload.append('estado_ingreso_nudos', form.estado_ingreso_nudos)
+    payload.append('estado_ingreso_pulgas', form.estado_ingreso_pulgas ? '1' : '0')
+    payload.append('estado_ingreso_heridas', form.estado_ingreso_heridas)
+    payload.append('temperamento', form.temperamento)
+    payload.append('condicion_general', form.condicion_general)
+    payload.append('recomendaciones_tecnicas', form.recomendaciones_tecnicas)
+    payload.append('tiempo_real_minutos', String(form.tiempo_real_minutos))
+    form.checklist.forEach((item) => payload.append('checklist[]', item))
+
+    photoFiles.value.forEach((file) => {
+      payload.append('fotos[]', file)
     })
+
+    const res = await cerrarFicha(activeAppointment.value.id, payload)
     
     notificationPayload.value = res.data.notificacion_cliente
     showNotificationModal.value = true
@@ -540,13 +558,6 @@ const closeNotificationModal = () => {
 }
 
 // HELPERS
-const formatDate = (dateStr) => {
-  if (!dateStr) return ''
-  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }
-  const date = new Date(dateStr + 'T00:00:00')
-  return date.toLocaleDateString('es-ES', options)
-}
-
 const formatTime = (timeStr) => {
   if (!timeStr) return ''
   return timeStr.substring(0, 5)

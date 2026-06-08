@@ -9,6 +9,12 @@
           <div class="flex items-center space-x-4">
             <span class="text-sm text-gray-700">Bienvenido, {{ user?.nombre_completo }}</span>
             <router-link
+              to="/admin/reportes"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-sm font-medium"
+            >
+              📊 Reportes
+            </router-link>
+            <router-link
               to="/admin/inventario"
               class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-md text-sm font-medium"
             >
@@ -27,6 +33,146 @@
 
     <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
       <div class="px-4 py-6 sm:px-0">
+        <!-- Dashboard KPI -->
+        <section class="mb-8 space-y-6">
+          <div class="rounded-3xl border border-slate-200/10 bg-slate-950/80 p-6 shadow-xl backdrop-blur-md">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p class="text-sm uppercase tracking-[0.24em] text-emerald-300">Dashboard Administrativo</p>
+                <h2 class="mt-2 text-3xl font-extrabold text-white">Resumen de KPIs</h2>
+                <p class="mt-2 text-slate-400 max-w-2xl">Monitoreo de ingresos, ocupación y alertas del inventario en tiempo real para garantizar la operación del Spa de Mascotas.</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <span class="rounded-full bg-slate-800 px-4 py-2 text-sm text-slate-300">Mes: {{ dashboard.periodo.mes || '—' }} {{ dashboard.periodo.anio || '' }}</span>
+              </div>
+            </div>
+
+            <div class="mt-8 grid gap-4 lg:grid-cols-3">
+              <div class="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-lg">
+                <p class="text-sm uppercase tracking-[0.2em] text-slate-400">Ventas mensuales</p>
+                <p class="mt-4 text-4xl font-bold text-emerald-300">{{ formatCurrency(dashboard.ventas_totales) }}</p>
+                <p class="mt-2 text-sm text-slate-400">Total registrado en pagos de este mes.</p>
+              </div>
+              <div class="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-lg">
+                <p class="text-sm uppercase tracking-[0.2em] text-slate-400">Ocupación</p>
+                <p class="mt-4 text-4xl font-bold text-sky-300">{{ dashboard.porcentaje_ocupacion }}%</p>
+                <p class="mt-2 text-sm text-slate-400">Citas activas vs. capacidad diaria configurada.</p>
+              </div>
+              <div class="rounded-3xl border border-slate-800 bg-slate-900/90 p-6 shadow-lg">
+                <p class="text-sm uppercase tracking-[0.2em] text-slate-400">Productos críticos</p>
+                <p class="mt-4 text-4xl font-bold text-rose-300">{{ dashboard.alertas_stock }}</p>
+                <p class="mt-2 text-sm text-slate-400">Artículos con stock actual igual o menor al mínimo.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-3xl border border-slate-800 bg-slate-900/95 p-6 shadow-xl mb-8">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h3 class="text-xl font-semibold text-white">Reportes rápidos</h3>
+                <p class="text-sm text-slate-400">Descarga reportes PDF esenciales desde el panel principal.</p>
+              </div>
+              <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+                <button
+                  @click="descargarReporteMensualActual"
+                  :disabled="descargandoReporteMensualActual"
+                  class="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  <span v-if="descargandoReporteMensualActual" class="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full"></span>
+                  Descargar mensual
+                </button>
+                <button
+                  @click="descargarReporteInventarioCompleto"
+                  :disabled="descargandoInventarioCompleto"
+                  class="inline-flex items-center justify-center rounded-md bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+                >
+                  <span v-if="descargandoInventarioCompleto" class="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full"></span>
+                  Descargar inventario
+                </button>
+                <button
+                  @click="router.push('/admin/reportes')"
+                  class="inline-flex items-center justify-center rounded-md bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                >
+                  Ver todos los reportes
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
+            <div class="rounded-3xl border border-slate-800 bg-slate-900/95 p-6 shadow-xl">
+              <div class="flex items-center justify-between gap-4 mb-6">
+                <div>
+                  <h3 class="text-xl font-semibold text-white">Inventario crítico</h3>
+                  <p class="text-sm text-slate-400">Productos o insumos con poco stock para revisión prioritaria.</p>
+                </div>
+              </div>
+
+              <div v-if="loadingDashboard" class="py-10 text-center text-slate-400">
+                Cargando alertas de inventario...
+              </div>
+
+              <div v-else>
+                <div v-if="dashboard.productos_alerta.length === 0" class="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 text-slate-400">
+                  No hay productos en alerta por el momento.
+                </div>
+                <div v-else class="space-y-4">
+                  <div
+                    v-for="producto in dashboard.productos_alerta.slice(0, 5)"
+                    :key="producto.id"
+                    class="rounded-3xl border border-slate-800 bg-slate-950/80 p-4"
+                  >
+                    <div class="flex items-center justify-between gap-4">
+                      <div>
+                        <p class="font-semibold text-white">{{ producto.nombre }}</p>
+                        <p class="text-sm text-slate-400">{{ producto.categoria || 'Sin categoría' }}</p>
+                      </div>
+                      <span :class="['inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold', getSeverityClass(producto)]">
+                        {{ producto.stock_actual }} / {{ producto.stock_minimo }} {{ producto.unidad_medida }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-3xl border border-slate-800 bg-slate-900/95 p-6 shadow-xl">
+              <div class="mb-6">
+                <h3 class="text-xl font-semibold text-white">Rendimiento simulado</h3>
+                <p class="text-sm text-slate-400">Comparativa visual básica entre grooming y boutique.</p>
+              </div>
+              <div class="space-y-4">
+                <div class="space-y-3">
+                  <div class="flex items-center justify-between text-sm text-slate-300">
+                    <span>Grooming</span>
+                    <span>{{ Math.round(dashboard.ventas_totales * 0.68) ? formatCurrency(Math.round(dashboard.ventas_totales * 0.68)) : formatCurrency(0) }}</span>
+                  </div>
+                  <div class="h-3 w-full rounded-full bg-slate-800 overflow-hidden">
+                    <div class="h-full rounded-full bg-gradient-to-r from-sky-500 to-cyan-400" :style="{ width: Math.min(100, dashboard.ventas_totales > 0 ? 68 : 0) + '%' }"></div>
+                  </div>
+                </div>
+                <div class="space-y-3">
+                  <div class="flex items-center justify-between text-sm text-slate-300">
+                    <span>Boutique</span>
+                    <span>{{ Math.round(dashboard.ventas_totales * 0.32) ? formatCurrency(Math.round(dashboard.ventas_totales * 0.32)) : formatCurrency(0) }}</span>
+                  </div>
+                  <div class="h-3 w-full rounded-full bg-slate-800 overflow-hidden">
+                    <div class="h-full rounded-full bg-gradient-to-r from-rose-500 to-pink-400" :style="{ width: Math.min(100, dashboard.ventas_totales > 0 ? 32 : 0) + '%' }"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="mt-8 rounded-3xl border border-slate-800 bg-slate-950/80 p-4 text-sm text-slate-300">
+                <p><span class="font-semibold text-white">Capacidad diaria:</span> {{ dashboard.capacidad_diaria }}</p>
+                <p><span class="font-semibold text-white">Citas ocupadas hoy:</span> {{ dashboard.citas_ocupadas }}</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div v-if="dashboardError" class="mb-4 rounded-3xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-100">
+          {{ dashboardError }}
+        </div>
+
         <!-- Alertas -->
         <div v-if="successMessage" class="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
           {{ successMessage }}
@@ -642,7 +788,10 @@ import {
   deleteEmployee,
   restoreEmployee,
   getAuditLogs,
-  getAuditLog
+  getAuditLog,
+  getDashboardKpis,
+  downloadReporteMensualPdf,
+  downloadReporteInventarioPdf
 } from '@/services/adminService'
 
 const router = useRouter()
@@ -657,6 +806,23 @@ const loadingDelete = ref(false)
 
 const successMessage = ref('')
 const errorMessage = ref('')
+
+const dashboard = ref({
+  ventas_totales: 0,
+  porcentaje_ocupacion: 0,
+  alertas_stock: 0,
+  productos_alerta: [],
+  capacidad_diaria: 0,
+  citas_ocupadas: 0,
+  periodo: {
+    mes: '',
+    anio: ''
+  }
+})
+const loadingDashboard = ref(false)
+const dashboardError = ref('')
+const descargandoReporteMensualActual = ref(false)
+const descargandoInventarioCompleto = ref(false)
 
 const newStaff = ref({
   nombre_completo: '',
@@ -700,6 +866,84 @@ const selectedLog = ref(null)
 const getRoleName = (employee) => {
   const roles = employee.role_names || []
   return roles.length > 0 ? roles[0] : 'Sin rol'
+}
+
+const formatCurrency = (value) => {
+  return new Intl.NumberFormat('es-PE', {
+    style: 'currency',
+    currency: 'PEN',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(Number(value || 0))
+}
+
+const getSeverityClass = (producto) => {
+  const ratio = producto.stock_minimo > 0 ? producto.stock_actual / producto.stock_minimo : 1
+  return ratio <= 0.5
+    ? 'bg-red-100 text-red-800'
+    : 'bg-orange-100 text-orange-800'
+}
+
+const downloadBlob = (blob, filename) => {
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', filename)
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
+const descargarReporteMensualActual = async () => {
+  try {
+    descargandoReporteMensualActual.value = true
+    errorMessage.value = ''
+    successMessage.value = ''
+
+    const hoy = new Date()
+    const mes = hoy.getMonth() + 1
+    const anio = hoy.getFullYear()
+    const response = await downloadReporteMensualPdf(mes, anio)
+
+    downloadBlob(response.data, `Reporte-Mensual-${anio}-${mes.toString().padStart(2, '0')}.pdf`)
+    successMessage.value = 'Reporte mensual descargado correctamente.'
+  } catch (err) {
+    errorMessage.value = 'Error al descargar reporte mensual: ' + (err.response?.data?.message || err.message)
+  } finally {
+    descargandoReporteMensualActual.value = false
+  }
+}
+
+const descargarReporteInventarioCompleto = async () => {
+  try {
+    descargandoInventarioCompleto.value = true
+    errorMessage.value = ''
+    successMessage.value = ''
+
+    const response = await downloadReporteInventarioPdf(false)
+    downloadBlob(response.data, `Reporte-Inventario-Completo-${new Date().toISOString().split('T')[0]}.pdf`)
+    successMessage.value = 'Reporte de inventario descargado correctamente.'
+  } catch (err) {
+    errorMessage.value = 'Error al descargar reporte de inventario: ' + (err.response?.data?.message || err.message)
+  } finally {
+    descargandoInventarioCompleto.value = false
+  }
+}
+
+const loadDashboardKpis = async () => {
+  loadingDashboard.value = true
+  dashboardError.value = ''
+
+  try {
+    const response = await getDashboardKpis()
+    dashboard.value = response.data
+  } catch (err) {
+    dashboardError.value = err.response?.data?.message || 'No se pudo cargar el dashboard de administración.'
+    console.error(err)
+  } finally {
+    loadingDashboard.value = false
+  }
 }
 
 const fetchEmployees = async () => {
@@ -926,6 +1170,7 @@ const loadAllUsers = async () => {
 }
 
 onMounted(() => {
+  loadDashboardKpis()
   fetchEmployees()
   loadAllUsers()
   loadAuditLogs()

@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class CitaController extends Controller
 {
@@ -69,6 +70,17 @@ class CitaController extends Controller
             'hora_fin' => 'required|date_format:H:i:s|after:hora_inicio',
         ]);
 
+        // Verify groomer exists in groomers table (not just usuarios)
+        $groomerExists = DB::table('groomers')
+            ->where('groomer_id', $request->groomer_id)
+            ->exists();
+
+        if (!$groomerExists) {
+            return response()->json([
+                'message' => 'El groomer seleccionado no está disponible para agendar citas.'
+            ], 422);
+        }
+
         // Load service and pet to verify duration and ownership
         $pet     = Pet::findOrFail($request->mascota_id);
         $service = Service::findOrFail($request->servicio_id);
@@ -80,16 +92,7 @@ class CitaController extends Controller
         }
 
         // ── Duration Validation (Agenda Item 1) ─────────────────────────────
-        // Compute expected duration based on pet size
-        $baseDuration = (int) ($service->duracion_base_minutos ?? 60);
-        $sizeIncrement = match ($pet->tamanio ?? 'MEDIANO') {
-            'PEQUEÑO' => (int) ($service->incremento_pequenio ?? 0),
-            'MEDIANO' => (int) ($service->incremento_mediano  ?? 0),
-            'GRANDE'  => (int) ($service->incremento_grande   ?? 15),
-            'GIGANTE' => (int) ($service->incremento_grande   ?? 15) + 15,
-            default   => 0,
-        };
-        $expectedMinutes = $baseDuration + $sizeIncrement;
+        $expectedMinutes = $service->getAdjustedDurationForSize($pet->tamanio ?? 'MEDIANO');
 
         $slotStart = Carbon::parse($request->fecha . ' ' . $request->hora_inicio);
         $slotEnd   = Carbon::parse($request->fecha . ' ' . $request->hora_fin);
@@ -232,6 +235,17 @@ class CitaController extends Controller
             'groomer_id' => 'required|uuid|exists:usuarios,id'
         ]);
 
+        // Verify groomer exists in groomers table (not just usuarios)
+        $groomerExists = DB::table('groomers')
+            ->where('groomer_id', $request->groomer_id)
+            ->exists();
+
+        if (!$groomerExists) {
+            return response()->json([
+                'message' => 'El groomer seleccionado no está disponible para agendar citas.'
+            ], 422);
+        }
+
         // Validate availability for the new slot (excluding current appointment id)
         $slotStart = Carbon::parse($request->fecha . ' ' . $request->hora_inicio);
         $slotEnd   = Carbon::parse($request->fecha . ' ' . $request->hora_fin);
@@ -239,15 +253,7 @@ class CitaController extends Controller
         // ── Duration Validation (reprogramar) ────────────────────────────────
         $service     = Service::findOrFail($cita->servicio_id);
         $pet         = Pet::findOrFail($cita->mascota_id);
-        $baseDuration = (int) ($service->duracion_base_minutos ?? 60);
-        $sizeIncrement = match ($pet->tamanio ?? 'MEDIANO') {
-            'PEQUEÑO' => (int) ($service->incremento_pequenio ?? 0),
-            'MEDIANO' => (int) ($service->incremento_mediano  ?? 0),
-            'GRANDE'  => (int) ($service->incremento_grande   ?? 15),
-            'GIGANTE' => (int) ($service->incremento_grande   ?? 15) + 15,
-            default   => 0,
-        };
-        $expectedMinutes = $baseDuration + $sizeIncrement;
+        $expectedMinutes = $service->getAdjustedDurationForSize($pet->tamanio ?? 'MEDIANO');
         $slotMinutes = $slotStart->diffInMinutes($slotEnd);
 
         if ($slotMinutes < $expectedMinutes) {

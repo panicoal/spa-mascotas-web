@@ -445,9 +445,31 @@ const handleCancelSubmit = async () => {
 // HELPERS
 const formatDate = (dateStr) => {
   if (!dateStr) return ''
-  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }
-  const date = new Date(dateStr + 'T00:00:00')
-  return date.toLocaleDateString('es-ES', options)
+  try {
+    // Handle various date formats from backend
+    // Accepts: YYYY-MM-DD, YYYY-MM-DDTHH:mm:ss, or full ISO string
+    let date
+    if (dateStr.includes('T')) {
+      // Already in ISO format
+      date = new Date(dateStr)
+    } else if (dateStr.length === 10) {
+      // Format: YYYY-MM-DD
+      date = new Date(dateStr + 'T00:00:00')
+    } else {
+      // Try parsing directly
+      date = new Date(dateStr)
+    }
+    
+    if (isNaN(date.getTime())) {
+      return 'Fecha inválida'
+    }
+    
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }
+    return date.toLocaleDateString('es-ES', options)
+  } catch (error) {
+    console.error('Error formatting date:', dateStr, error)
+    return 'Fecha inválida'
+  }
 }
 
 const formatTime = (timeStr) => {

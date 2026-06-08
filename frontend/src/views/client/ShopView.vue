@@ -515,17 +515,29 @@ const scrollToCart = () => {
 }
 
 // Order Generation & Direct Whatsapp Link
-const placeOrder = () => {
+const placeOrder = async () => {
   if (cart.value.length === 0) return
 
+  try {
+    await api.post('/inventario/pedidos', {
+      items: cart.value.map(item => ({
+        producto_id: item.product.id,
+        cantidad: item.quantity
+      }))
+    })
+  } catch (error) {
+    alert(error.response?.data?.message || 'No se pudo registrar el pedido. Verifica el stock y vuelve a intentar.')
+    return
+  }
+
   // Format WhatsApp message
-  const spaPhone = '59170000000' // Business phone (can be replaced by real config)
+  const spaPhone = '59162330784' 
   
-  let msg = `🐾 *¡Hola Pet Spa! Quiero realizar un pedido:* \n`
+  let msg = `*¡Hola Pet Spa! Quiero realizar un pedido:* \n`
   msg += `--------------------------------------------\n`
-  msg += `👤 *Cliente:* ${user.value?.nombre_completo || 'Cliente Registrado'}\n`
-  msg += `📞 *Teléfono:* ${user.value?.telefono || 'No registrado'}\n`
-  msg += `📦 *Detalle del Pedido:* \n\n`
+  msg += `*Cliente:* ${user.value?.nombre_completo || 'Cliente Registrado'}\n`
+  msg += `*Teléfono:* ${user.value?.telefono || 'No registrado'}\n`
+  msg += `*Detalle del Pedido:* \n\n`
   
   cart.value.forEach(item => {
     const unitPrice = parseFloat(item.product.precio_venta || 0).toFixed(2)
@@ -535,10 +547,10 @@ const placeOrder = () => {
   })
 
   msg += `--------------------------------------------\n`
-  msg += `💰 *Total Compra:* *$${cartSubtotal.value.toFixed(2)}*\n`
-  msg += `📍 *Método de entrega:* A coordinar en mi próxima cita de grooming 📅\n`
+  msg += `*Total Compra:* *$${cartSubtotal.value.toFixed(2)}*\n`
+  msg += `*Método de entrega:* A coordinar en mi próxima cita de grooming\n`
   msg += `--------------------------------------------\n`
-  msg += `✨ _¡Muchas gracias! Espero su confirmación._`
+  msg += `_¡Muchas gracias! Espero su confirmación._`
 
   const encodedMsg = encodeURIComponent(msg)
   const whatsappUrl = `https://wa.me/${spaPhone}?text=${encodedMsg}`

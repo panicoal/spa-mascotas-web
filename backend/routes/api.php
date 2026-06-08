@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\Admin\ServiceController;
 use App\Http\Controllers\Api\AgendaController;
 use App\Http\Controllers\Api\CitaController;
 use App\Http\Controllers\Api\GroomingController;
+use App\Http\Controllers\Api\ReporteController;
 
 Route::prefix('auth')->group(function () {
 
@@ -223,12 +224,28 @@ Route::middleware(['auth:sanctum', 'require.password.change'])->group(function (
         Route::post('/groomer/fichas/{citaId}/cerrar', [GroomingController::class, 'cerrarFicha']);
     });
 
+    // ── Reportes y consolidación ────────────────────────────────────────
+    Route::middleware(['role:ADMIN'])->group(function () {
+        Route::get('/admin/dashboard-kpis', [ReporteController::class, 'dashboardKpis']);
+        Route::get('/admin/reporte/mensual-pdf', [ReporteController::class, 'reporteMensualPdf']);
+    });
+
+    Route::middleware(['role:ADMIN|RECEPCION'])->group(function () {
+        Route::get('/recepcion/cierre-caja', [ReporteController::class, 'cierreCaja']);
+        Route::post('/recepcion/cierre-caja', [ReporteController::class, 'cerrarCaja']);
+        Route::get('/recepcion/cierre-caja-pdf', [ReporteController::class, 'reporteCierreCajaPdf']);
+    });
+
     // ── Inventario (Admin + Recepcion + Cliente) ──────────────────────────
     Route::get('/inventario/productos', [InventarioController::class, 'index'])
         ->middleware('role:ADMIN|RECEPCION|CLIENTE');
 
+    Route::post('/inventario/pedidos', [InventarioController::class, 'registrarPedidoCliente'])
+        ->middleware('role:ADMIN|RECEPCION|CLIENTE');
+
     Route::middleware('role:ADMIN|RECEPCION')->prefix('inventario')->group(function () {
         Route::get('/dashboard',          [InventarioController::class, 'dashboard']);
+        Route::get('/reporte-pdf',        [InventarioController::class, 'reporteInventarioPdf']);
         Route::post('/productos',         [InventarioController::class, 'store']);
         Route::get('/productos/{id}',     [InventarioController::class, 'show']);
         Route::put('/productos/{id}',     [InventarioController::class, 'update']);

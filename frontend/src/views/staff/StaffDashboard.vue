@@ -50,6 +50,23 @@
             </button>
           </div>
 
+          <div
+            v-if="roles.includes('RECEPCION') || roles.includes('ADMIN')"
+            @click="router.push('/reception/cierre-caja')"
+            class="bg-gradient-to-tr from-slate-900 to-slate-700 hover:shadow-xl hover:border-slate-500/50 transition cursor-pointer p-6 rounded-2xl border border-slate-700 flex flex-col justify-between"
+          >
+            <div>
+              <span class="text-4xl block mb-4">💰</span>
+              <h3 class="text-xl font-bold text-white mb-2">Cierre de Caja</h3>
+              <p class="text-slate-300 text-sm">
+                Visualiza el desglose diario, valida efectivo, QR y transferencias, y realiza el cierre de caja.
+              </p>
+            </div>
+            <button class="mt-6 w-full bg-slate-300 hover:bg-slate-200 text-slate-950 font-semibold py-2.5 rounded-xl transition text-sm">
+              Abrir Cierre de Caja
+            </button>
+          </div>
+
           <!-- GROOMER CARD -->
           <div
             v-if="roles.includes('GROOMER') || roles.includes('ADMIN')"
